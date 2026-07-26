@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   getClientId,
-  setClientId as saveClientId,
   getRedirectUri,
+  buildShareLink,
 } from '../spotify/auth.js';
 import { parsePlaylistUrl } from '../spotify/api.js';
 import '../pages.css';
@@ -37,7 +37,6 @@ function CopyField({ value, label }) {
 
 export default function Setup() {
   const [clientId, setClientId] = useState(() => getClientId());
-  const [saved, setSaved] = useState(false);
   const [playlistInput, setPlaylistInput] = useState('');
   const redirectUri = useMemo(() => {
     try {
@@ -48,10 +47,10 @@ export default function Setup() {
   }, []);
 
   const playlistId = parsePlaylistUrl(playlistInput);
-  const base = `${window.location.origin}${import.meta.env.BASE_URL}`.replace(/\/?$/, '/');
-  const shareLink = playlistId
-    ? `${base}play?playlist=${playlistId}`
-    : '';
+  const shareLink =
+    playlistId && clientId.trim()
+      ? buildShareLink({ playlistId, clientId: clientId.trim() })
+      : '';
 
   return (
     <div className="page-shell">
@@ -63,7 +62,8 @@ export default function Setup() {
       <div className="page-card wide">
         <h1 className="brand-title">setup guide</h1>
         <p className="brand-sub">
-          you do this once. your partner only opens a link and logs into spotify.
+          you do this once on the website. your partner only opens the share link
+          and logs into spotify — no install, no client id paste, no repo.
         </p>
 
         <div className="setup-steps">
@@ -91,80 +91,42 @@ export default function Setup() {
             <h3>2 · add this redirect uri</h3>
             <p>in app settings → Redirect URIs → add exactly:</p>
             <CopyField value={redirectUri} />
-            <p className="note">
-              for local testing also add:{' '}
-              <code style={{ display: 'inline', padding: '0.1rem 0.3rem' }}>
-                http://127.0.0.1:5173/callback
-              </code>{' '}
-              (and run with base <code style={{ display: 'inline' }}>/</code> if needed).
-            </p>
-            <p>save settings.</p>
+            <p>save settings. (this is the public cupid-player site — no clone required.)</p>
           </section>
 
           <section className="setup-step">
-            <h3>3 · paste your client id</h3>
+            <h3>3 · whitelist your partner</h3>
+            <ol>
+              <li>dashboard → your app → <strong>Settings → User Management</strong></li>
+              <li>add the email on <strong>their</strong> spotify account</li>
+              <li>add yourself too</li>
+              <li>save</li>
+            </ol>
+            <p className="note">
+              development mode only allows allowlisted users (~25). they need{' '}
+              <strong>spotify premium</strong> to hear music in the browser.
+            </p>
+          </section>
+
+          <section className="setup-step">
+            <h3>4 · paste your client id + playlist</h3>
             <p>
-              copy the <strong>Client ID</strong> from the dashboard (not the secret — pkce doesn’t need it).
+              copy the <strong>Client ID</strong> from the dashboard (not the secret).
+              it goes <em>into the share link</em> — client ids are public for web apps.
+              your partner never types it.
             </p>
             <div className="field-row">
               <input
                 type="text"
                 placeholder="spotify client id"
                 value={clientId}
-                onChange={(e) => {
-                  setClientId(e.target.value);
-                  setSaved(false);
-                }}
+                onChange={(e) => setClientId(e.target.value)}
                 spellCheck={false}
               />
-              <button
-                type="button"
-                className="btn-pixel"
-                onClick={() => {
-                  saveClientId(clientId);
-                  setSaved(true);
-                }}
-              >
-                save on this browser
-              </button>
             </div>
-            {saved && <p className="success-msg">saved. this browser can log into spotify now.</p>}
-            <p className="note">
-              saving here stores the id in <em>this browser only</em>. for a permanent site
-              that works for your partner without them pasting anything, also set{' '}
-              <code style={{ display: 'inline' }}>VITE_SPOTIFY_CLIENT_ID</code> as a GitHub
-              Actions secret and redeploy (recommended).
+            <p style={{ marginTop: '0.75rem' }}>
+              paste a spotify playlist link (public or collaborative works best):
             </p>
-          </section>
-
-          <section className="setup-step">
-            <h3>4 · whitelist your partner</h3>
-            <ol>
-              <li>dashboard → your app → <strong>Settings → User Management</strong></li>
-              <li>add the email on their spotify account</li>
-              <li>save</li>
-            </ol>
-            <p className="note">
-              development mode only allows allowlisted users (about 25). add yourself too.
-              they need <strong>spotify premium</strong> to hear music in the browser.
-            </p>
-          </section>
-
-          <section className="setup-step">
-            <h3>5 · make (or pick) a playlist</h3>
-            <ul>
-              <li>curate a playlist in spotify</li>
-              <li>
-                make it <strong>public</strong> or <strong>collaborative</strong> if they
-                should open your list under their account
-              </li>
-              <li>copy the playlist link from spotify (share → copy link)</li>
-            </ul>
-          </section>
-
-          <section className="setup-step">
-            <h3>6 · build a share link</h3>
-            <p>paste a spotify playlist url or id:</p>
             <div className="field-row">
               <input
                 type="text"
@@ -174,45 +136,46 @@ export default function Setup() {
                 spellCheck={false}
               />
             </div>
-            {playlistId && shareLink ? (
-              <>
-                <p className="success-msg">share this with them:</p>
-                <CopyField value={shareLink} />
-                <p className="note">
-                  they open it → log in with spotify once → playlist loads → play.
-                </p>
-              </>
-            ) : playlistInput.trim() ? (
-              <p className="warn-msg">couldn’t parse that as a playlist link</p>
-            ) : null}
           </section>
 
           <section className="setup-step">
-            <h3>7 · try it yourself</h3>
-            <p>
-              open the player, log in with your spotify account, and confirm playback works
-              before you send the link.
-            </p>
-            <div className="field-row" style={{ marginTop: '0.6rem' }}>
-              <Link to="/play" className="btn-pixel" style={{ textDecoration: 'none' }}>
-                open player →
-              </Link>
-              {shareLink && (
-                <Link
-                  to={`/play?playlist=${playlistId}`}
-                  className="btn-pixel secondary"
-                  style={{ textDecoration: 'none' }}
-                >
-                  open share link →
-                </Link>
-              )}
-            </div>
+            <h3>5 · copy the magic share link</h3>
+            {!clientId.trim() && (
+              <p className="warn-msg">paste your client id above first</p>
+            )}
+            {clientId.trim() && !playlistId && playlistInput.trim() && (
+              <p className="warn-msg">couldn’t parse that as a playlist link</p>
+            )}
+            {clientId.trim() && !playlistInput.trim() && (
+              <p className="note">waiting for a playlist url…</p>
+            )}
+            {shareLink && (
+              <>
+                <p className="success-msg">
+                  send this to them. it includes the playlist <em>and</em> your client id.
+                </p>
+                <CopyField value={shareLink} />
+                <p className="note">
+                  they open it → log in with spotify once → playlist plays.
+                  you only need to have whitelisted their email (step 3).
+                </p>
+                <div className="field-row" style={{ marginTop: '0.6rem' }}>
+                  <a
+                    className="btn-pixel"
+                    href={shareLink}
+                    style={{ textDecoration: 'none' }}
+                  >
+                    try the link yourself →
+                  </a>
+                </div>
+              </>
+            )}
           </section>
         </div>
 
         <p className="page-footer" style={{ marginTop: '1.5rem' }}>
           stuck? common issues: wrong redirect uri, partner not in user management,
-          free account (premium required), or client id not set for their browser / deploy.
+          free account (premium required), or a stale share link missing client_id.
         </p>
       </div>
     </div>

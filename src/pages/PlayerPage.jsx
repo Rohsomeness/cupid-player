@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import Player from '../components/Player.jsx';
 import {
+  absorbClientIdFromUrl,
   getClientId,
   isLoggedIn,
   login,
@@ -18,6 +19,12 @@ import '../pages.css';
 export default function PlayerPage() {
   const { playlistId: pathId } = useParams();
   const [searchParams] = useSearchParams();
+
+  // Pull ?client_id= / ?cid= from the share link into this tab (no setup for partner)
+  useEffect(() => {
+    absorbClientIdFromUrl(searchParams.toString());
+  }, [searchParams]);
+
   const queryPlaylist = searchParams.get('playlist') || searchParams.get('p');
   const deepPlaylistId = useMemo(
     () => pathId || parsePlaylistUrl(queryPlaylist || '') || queryPlaylist || null,
@@ -33,12 +40,17 @@ export default function PlayerPage() {
   const [loadingPlaylists, setLoadingPlaylists] = useState(false);
   const [error, setError] = useState(null);
   const [pasteUrl, setPasteUrl] = useState('');
+  // Re-read when search params change so share-link client_id is seen immediately
   const hasClientId = Boolean(getClientId());
 
   const returnPath = useMemo(() => {
-    if (deepPlaylistId) return `/play?playlist=${deepPlaylistId}`;
-    return '/play';
-  }, [deepPlaylistId]);
+    const params = new URLSearchParams();
+    if (deepPlaylistId) params.set('playlist', deepPlaylistId);
+    const cid = getClientId();
+    if (cid) params.set('client_id', cid);
+    const q = params.toString();
+    return q ? `/play?${q}` : '/play';
+  }, [deepPlaylistId, searchParams]);
 
   const loadPlaylist = useCallback(async (id) => {
     if (!id) return;
@@ -102,11 +114,14 @@ export default function PlayerPage() {
         </div>
         <div className="gate">
           <div className="gate-card">
-            <h1>almost ready</h1>
+            <h1>need a share link</h1>
             <p>
-              this site still needs a spotify client id. the person who set this up
-              should open setup and paste theirs (or redeploy with{' '}
-              <code>VITE_SPOTIFY_CLIENT_ID</code>).
+              this page was opened without a spotify client id. ask whoever set this
+              up to send you the full link from <strong>setup</strong> (it includes{' '}
+              <code>client_id=…</code> in the url).
+            </p>
+            <p className="note" style={{ marginTop: '0.75rem' }}>
+              if you&apos;re the setup person, open setup and copy the magic share link.
             </p>
             <Link to="/setup" className="btn-pixel" style={{ textDecoration: 'none', display: 'inline-block' }}>
               go to setup →
@@ -132,6 +147,7 @@ export default function PlayerPage() {
               log in with spotify to play. you need <strong>premium</strong>, and
               your email must be on the app&apos;s allowlist (ask whoever sent you this).
             </p>
+            <p className="note">no setup for you — the link they sent already has everything.</p>
             {error && <p className="warn-msg">{error}</p>}
             <button type="button" className="btn-pixel" onClick={handleLogin}>
               continue with spotify

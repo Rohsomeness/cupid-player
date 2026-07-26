@@ -15,7 +15,8 @@ export default function Landing() {
         </div>
 
         <p className="brand-sub" style={{ marginTop: '0.75rem' }}>
-          two paths. set it up once, then share a playlist link they can open and play.
+          set it up once in the browser, then send one link. the link carries the
+          playlist <em>and</em> your client id — they just log in.
         </p>
 
         <div className="paths">
@@ -23,17 +24,17 @@ export default function Landing() {
             <span className="path-tag">for you · the setup person</span>
             <h2>i&apos;m setting this up →</h2>
             <p>
-              create a spotify developer app, whitelist your partner, and build a
-              share link to a playlist. takes about 10 minutes the first time.
+              create a spotify app, whitelist their email, paste client id +
+              playlist, copy the magic share link. no clone, no deploy.
             </p>
           </Link>
 
           <Link to="/play" className="path-card">
-            <span className="path-tag">for them · open &amp; play</span>
+            <span className="path-tag">for them · open the link they sent</span>
             <h2>i was sent a link →</h2>
             <p>
-              log in with spotify (premium), open the playlist, and press play.
-              no install. no terminal. just the player.
+              use the full url they texted you (it has client_id in it). log in
+              with spotify premium and press play. nothing to configure.
             </p>
           </Link>
         </div>

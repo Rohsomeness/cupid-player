@@ -1,6 +1,14 @@
 /**
  * Spotify OAuth 2.0 PKCE — browser only.
- * Client ID from VITE_SPOTIFY_CLIENT_ID (build) or localStorage override (setup).
+ *
+ * Client ID resolution (first match wins):
+ *  1. URL ?client_id= / ?cid=  (share-link friendly — no setup for partner)
+ *  2. sessionStorage (survives OAuth redirect in the same tab)
+ *  3. localStorage (optional setup “remember on this browser”)
+ *  4. VITE_SPOTIFY_CLIENT_ID build-time env
+ *
+ * Client IDs are public for SPA apps; putting them in a share URL is fine.
+ * Never put a client *secret* in a URL.
  */
 
 const TOKEN_KEY = 'spotify_token';
@@ -8,6 +16,7 @@ const REFRESH_KEY = 'spotify_refresh_token';
 const EXPIRY_KEY = 'spotify_token_expiry';
 const CODE_VERIFIER_KEY = 'spotify_code_verifier';
 const CLIENT_ID_KEY = 'spotify_client_id';
+const CLIENT_ID_SESSION_KEY = 'spotify_client_id_session';
 
 const SCOPES = [
   'streaming',
@@ -19,16 +28,73 @@ const SCOPES = [
   'playlist-read-collaborative',
 ];
 
+/** Read client id from a URLSearchParams / location.search string. */
+export function clientIdFromSearch(search) {
+  const params = typeof search === 'string'
+    ? new URLSearchParams(search.startsWith('?') ? search : `?${search}`)
+    : search;
+  const id = params.get('client_id') || params.get('cid') || '';
+  return id.trim();
+}
+
+/**
+ * Pull client id from the current page URL into sessionStorage so OAuth
+ * and later API calls still work after Spotify redirects to /callback.
+ * Safe to call on every route render.
+ */
+export function absorbClientIdFromUrl(search = window.location.search) {
+  const fromUrl = clientIdFromSearch(search);
+  if (fromUrl) {
+    try {
+      sessionStorage.setItem(CLIENT_ID_SESSION_KEY, fromUrl);
+    } catch { /* ignore */ }
+    return fromUrl;
+  }
+  return null;
+}
+
 export function getClientId() {
+  // Live URL wins every time (share links)
+  try {
+    const fromUrl = clientIdFromSearch(window.location.search);
+    if (fromUrl) {
+      sessionStorage.setItem(CLIENT_ID_SESSION_KEY, fromUrl);
+      return fromUrl;
+    }
+  } catch { /* ignore */ }
+
+  try {
+    const session = sessionStorage.getItem(CLIENT_ID_SESSION_KEY);
+    if (session && session.trim()) return session.trim();
+  } catch { /* ignore */ }
+
   try {
     const stored = localStorage.getItem(CLIENT_ID_KEY);
     if (stored && stored.trim()) return stored.trim();
   } catch { /* ignore */ }
-  return import.meta.env.VITE_SPOTIFY_CLIENT_ID || '';
+
+  return (import.meta.env.VITE_SPOTIFY_CLIENT_ID || '').trim();
 }
 
 export function setClientId(id) {
-  localStorage.setItem(CLIENT_ID_KEY, (id || '').trim());
+  const v = (id || '').trim();
+  localStorage.setItem(CLIENT_ID_KEY, v);
+  try {
+    if (v) sessionStorage.setItem(CLIENT_ID_SESSION_KEY, v);
+  } catch { /* ignore */ }
+}
+
+/** Build a play URL that embeds client id + playlist so partner needs zero setup. */
+export function buildShareLink({ playlistId, clientId, origin, base } = {}) {
+  const root = origin ?? window.location.origin;
+  const b = base ?? import.meta.env.BASE_URL ?? '/';
+  const basePath = `${root}${b.endsWith('/') ? b : `${b}/`}`;
+  const params = new URLSearchParams();
+  if (playlistId) params.set('playlist', playlistId);
+  const cid = (clientId || getClientId() || '').trim();
+  if (cid) params.set('client_id', cid);
+  const q = params.toString();
+  return `${basePath}play${q ? `?${q}` : ''}`;
 }
 
 export function getRedirectUri() {
@@ -54,6 +120,21 @@ function base64UrlEncode(buffer) {
   return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+function base64UrlEncodeString(str) {
+  const bytes = new TextEncoder().encode(str);
+  let binary = '';
+  bytes.forEach((b) => { binary += String.fromCharCode(b); });
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function base64UrlDecodeString(str) {
+  const pad = str.length % 4 === 0 ? '' : '='.repeat(4 - (str.length % 4));
+  const b64 = str.replace(/-/g, '+').replace(/_/g, '/') + pad;
+  const binary = atob(b64);
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
 async function generateCodeChallenge(verifier) {
   const hashed = await sha256(verifier);
   return base64UrlEncode(hashed);
@@ -66,21 +147,35 @@ function storeTokens({ access_token, refresh_token, expires_in }) {
 }
 
 /**
- * @param {string} [returnPath] path+query to restore after OAuth (e.g. /play?playlist=…)
+ * @param {string} [returnPath] path+query to restore after OAuth (e.g. /play?playlist=…&client_id=…)
  */
 export async function login(returnPath) {
   const CLIENT_ID = getClientId();
   if (!CLIENT_ID) {
-    throw new Error('Missing Spotify Client ID. Open Setup and paste your Client ID first.');
+    throw new Error(
+      'Missing Spotify Client ID. Use a share link that includes client_id, or open Setup.',
+    );
   }
 
-  if (returnPath) {
-    sessionStorage.setItem('cupid_post_login', returnPath);
+  // Ensure client id survives the trip even if returnPath is lost
+  try {
+    sessionStorage.setItem(CLIENT_ID_SESSION_KEY, CLIENT_ID);
+  } catch { /* ignore */ }
+
+  // Always put client_id on the post-login path when we have it
+  let next = returnPath || '/play';
+  if (!/[?&](client_id|cid)=/.test(next)) {
+    next += `${next.includes('?') ? '&' : '?'}client_id=${encodeURIComponent(CLIENT_ID)}`;
   }
+
+  sessionStorage.setItem('cupid_post_login', next);
 
   const verifier = generateRandomString(64);
   const challenge = await generateCodeChallenge(verifier);
   localStorage.setItem(CODE_VERIFIER_KEY, verifier);
+
+  // Pack client_id into OAuth state so callback works even if sessionStorage is wiped
+  const state = base64UrlEncodeString(JSON.stringify({ c: CLIENT_ID, r: next }));
 
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
@@ -89,6 +184,7 @@ export async function login(returnPath) {
     scope: SCOPES.join(' '),
     code_challenge_method: 'S256',
     code_challenge: challenge,
+    state,
   });
 
   window.location.href = `https://accounts.spotify.com/authorize?${params}`;
@@ -100,14 +196,28 @@ export async function handleCallback() {
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code');
   const error = params.get('error');
+  const stateRaw = params.get('state');
 
   if (error) throw new Error(`Spotify auth error: ${error}`);
   if (!code) return null;
   if (_callbackInFlight) return null;
   _callbackInFlight = true;
 
+  // Recover client id + return path from OAuth state if present
+  if (stateRaw) {
+    try {
+      const parsed = JSON.parse(base64UrlDecodeString(stateRaw));
+      if (parsed?.c) {
+        sessionStorage.setItem(CLIENT_ID_SESSION_KEY, parsed.c);
+      }
+      if (parsed?.r) {
+        sessionStorage.setItem('cupid_post_login', parsed.r);
+      }
+    } catch { /* ignore bad state */ }
+  }
+
   const CLIENT_ID = getClientId();
-  if (!CLIENT_ID) throw new Error('Missing Spotify Client ID');
+  if (!CLIENT_ID) throw new Error('Missing Spotify Client ID after redirect');
 
   try {
     const verifier = localStorage.getItem(CODE_VERIFIER_KEY);

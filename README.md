@@ -13,7 +13,15 @@ After deploy: **https://rohsomeness.github.io/cupid-player/**
 | Path | Who | What |
 |------|-----|------|
 | `/setup` | You | Spotify developer app, whitelist partner, build share link |
-| `/play?playlist=ID` | Partner | Log in once → play |
+| `/play?playlist=ID&client_id=…` | Partner | Log in once → play (client id is **in the URL**) |
+
+Share links embed your public Spotify **Client ID**, so partners never paste config and you never need to redeploy with secrets. You only whitelist their email in the Spotify dashboard.
+
+Example:
+
+```
+https://rohsomeness.github.io/cupid-player/play?playlist=PLAYLIST_ID&client_id=YOUR_CLIENT_ID
+```
 
 ## Requirements
 
