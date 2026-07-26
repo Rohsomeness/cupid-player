@@ -35,11 +35,19 @@ Add redirect URI: `http://127.0.0.1:5173/callback`
 
 ## Deploy (GitHub Pages)
 
-1. Push to `main`
-2. Repo **Settings → Pages → Source: GitHub Actions**
-3. Optional: add secret `VITE_SPOTIFY_CLIENT_ID` so partners don’t paste a client id
-4. In Spotify Dashboard, add redirect:  
-   `https://rohsomeness.github.io/cupid-player/callback`
+Site is published from the `gh-pages` branch.
+
+```bash
+# optional: bake client id into the build (recommended for your partner)
+export VITE_SPOTIFY_CLIENT_ID=your_id_here
+npm run deploy
+```
+
+In Spotify Dashboard, add redirect URI:
+
+`https://rohsomeness.github.io/cupid-player/callback`
+
+(A GitHub Actions workflow file lives at `.github/workflows/deploy.yml` for optional CI deploy if your token has the `workflow` scope.)
 
 ## Share link format
 
