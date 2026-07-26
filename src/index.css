@@ -1,0 +1,53 @@
+@font-face {
+  font-family: 'Rainyhearts';
+  src: url('../font/rainyhearts.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+:root {
+  font-family: 'Rainyhearts', 'Courier New', monospace;
+  color-scheme: dark;
+  --pink-bg: #1a0e14;
+  --pink-panel: #2a1520;
+  --pink-primary: #5a3a4a;
+  --pink-title: #78364f;
+  --pink-text: #f6cfc8;
+  --pink-muted: #8a6a7a;
+  --pink-accent: #e8a0b0;
+  --blue-bg: #0a1418;
+  --blue-panel: #0e1e24;
+  --blue-primary: #063940;
+  --blue-title: #063940;
+  --blue-text: #c8d3f6;
+  --blue-muted: #1a6b6b;
+  --blue-accent: #7ec8c8;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--pink-bg);
+  color: var(--pink-text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: var(--pink-accent);
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
