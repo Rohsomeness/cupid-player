@@ -337,7 +337,7 @@ export default function Player({
         style={{ opacity: playMode === 'normal' ? 0.4 : 0.8 }}
       />
 
-      {/* Chrome: settings + close only (mask covers baked min/max) */}
+      {/* Chrome: contained settings + X (same button style) */}
       <div className="chrome-btn-mask" aria-hidden />
       <img src={assets.settings} className="layer layer-ui settings-layer" alt="" draggable={false} />
       <img src={assets.exitButton} className="layer layer-ui chrome-exit-layer" alt="" draggable={false} />

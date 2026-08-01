@@ -93,28 +93,30 @@
   -webkit-app-region: no-drag;
 }
 
-/* Settings (left) + close (right) — only two chrome controls */
+/* Settings (left of X) + close — both are full-frame chrome sprites */
 .btn-settings {
-  left: calc((348 - 110) / 306 * var(--u));
-  top: calc((48 - 23) / 306 * var(--u));
+  /* Align to window-button slot (settings_button.png lives there) */
+  left: calc((344 - 110) / 306 * var(--u));
+  top: calc((46 - 23) / 306 * var(--u));
   width: calc(22 / 306 * var(--u));
   height: calc(22 / 306 * var(--u));
 }
 
 .btn-exit {
-  left: calc((378 - 110) / 306 * var(--u));
-  top: calc((48 - 23) / 306 * var(--u));
+  left: calc((367 - 110) / 306 * var(--u));
+  top: calc((46 - 23) / 306 * var(--u));
+  width: calc(22 / 306 * var(--u));
+  height: calc(22 / 306 * var(--u));
 }
 
-/* Cover baked min/max slots on the frame; only settings + X show */
+/* Optional cover if frame still bakes min icon left of settings */
 .chrome-btn-mask {
   position: absolute;
   left: calc((318 - 110) / 306 * var(--u));
   top: calc((45 - 23) / 306 * var(--u));
-  width: calc(58 / 306 * var(--u));
+  width: calc(28 / 306 * var(--u));
   height: calc(26 / 306 * var(--u));
   z-index: 18;
-  /* Match pink titlebar; blue theme overrides below */
   background: #e8a0b4;
   pointer-events: none;
   image-rendering: pixelated;
@@ -124,16 +126,7 @@
   background: #6ec4c8;
 }
 
-/* Settings sprite in the chrome cluster (left of X) */
-.settings-layer {
-  transform: scale(0.92) translate(
-    calc(44 / 306 * var(--u)),
-    calc(1 / 306 * var(--u))
-  );
-  transform-origin: calc(310 / 512 * 100%) calc(57 / 512 * 100%);
-  z-index: 21;
-}
-
+.settings-layer,
 .chrome-exit-layer {
   z-index: 21;
 }
