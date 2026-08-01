@@ -81,66 +81,89 @@ export default function Player({
   const seekRef = useRef(null);
   const volumeBarRef = useRef(null);
 
+  const [recordFrame, setRecordFrame] = useState(0);
   const [needleFrame, setNeedleFrame] = useState(0);
+  // Alternate pink/blue vinyl faces on each track change
   const [isPink, setIsPink] = useState(true);
   const [swapping, setSwapping] = useState(false);
   const [needleLifted, setNeedleLifted] = useState(false);
   const [needleChangeFrame, setNeedleChangeFrame] = useState(0);
-  const prevTrackRef = useRef(null);
+  const prevTrackKeyRef = useRef(null);
   const swapTimersRef = useRef([]);
+  const swapLockRef = useRef(false);
 
-  // Pick a vinyl face; continuous spin is CSS (not frame-cycling)
-  const diskSrc = isPink ? assets.recordFramesA[0] : assets.recordFramesB[0];
-  const incomingDiskSrc = isPink ? assets.recordFramesB[0] : assets.recordFramesA[0];
+  // Isometric vinyl art: spin = cycle shading frames (never CSS rotate)
+  const currentFrames = isPink ? assets.recordFramesA : assets.recordFramesB;
+  const incomingFrames = isPink ? assets.recordFramesB : assets.recordFramesA;
 
-  // Needle bob while playing (faster + smoother interval)
+  // Spin while playing: advance highlight frames on the disk
   useEffect(() => {
     if (!isPlaying || swapping || needleLifted) return;
     const interval = setInterval(() => {
+      setRecordFrame((f) => (f + 1) % currentFrames.length);
       setNeedleFrame((f) => (f + 1) % assets.needlePlayFrames.length);
-    }, 180);
+    }, 140);
     return () => clearInterval(interval);
-  }, [isPlaying, swapping, needleLifted, assets.needlePlayFrames.length]);
+  }, [
+    isPlaying,
+    swapping,
+    needleLifted,
+    currentFrames.length,
+    assets.needlePlayFrames.length,
+  ]);
 
-  // Track change: lift needle → swap disk → lower needle
+  // Track change → lift needle, slide old record out, new record in, lower needle
   useEffect(() => {
-    if (prevTrackRef.current === track.title) return;
-    const wasInitialOrPlaceholder =
-      prevTrackRef.current === null || prevTrackRef.current === 'No track';
-    prevTrackRef.current = track.title;
-    if (track.title === 'No track') return;
-    if (wasInitialOrPlaceholder) return;
-    if (needleLifted) return;
+    const key = track.uri || `${track.title}|${track.artist}`;
+    if (prevTrackKeyRef.current === key) return;
+
+    const wasInitial =
+      prevTrackKeyRef.current === null ||
+      prevTrackKeyRef.current === 'No track|' ||
+      track.title === 'No track';
+    prevTrackKeyRef.current = key;
+
+    if (wasInitial || track.title === 'No track') return;
+    if (swapLockRef.current) return;
+    swapLockRef.current = true;
 
     swapTimersRef.current.forEach(clearTimeout);
     swapTimersRef.current = [];
-
-    setNeedleLifted(true);
-    setNeedleChangeFrame(0);
 
     const t = (ms, fn) => {
       swapTimersRef.current.push(setTimeout(fn, ms));
     };
 
-    t(160, () => setNeedleChangeFrame(1));
-    t(320, () => setNeedleChangeFrame(2));
-    t(420, () => setSwapping(true));
-    t(1180, () => {
+    // 1) Needle lifts off the groove
+    setNeedleLifted(true);
+    setNeedleChangeFrame(0);
+    t(120, () => setNeedleChangeFrame(1));
+    t(240, () => setNeedleChangeFrame(2));
+
+    // 2) Old record slides out; new one slides in (pink ↔ blue)
+    t(300, () => setSwapping(true));
+
+    // 3) Commit color swap when the new disk is home
+    t(980, () => {
       setIsPink((p) => !p);
+      setRecordFrame(0);
       setSwapping(false);
     });
-    t(1280, () => setNeedleChangeFrame(1));
-    t(1420, () => {
+
+    // 4) Needle lowers back onto the new record
+    t(1080, () => setNeedleChangeFrame(1));
+    t(1220, () => {
       setNeedleChangeFrame(0);
       setNeedleLifted(false);
       setNeedleFrame(0);
+      swapLockRef.current = false;
     });
 
     return () => {
       swapTimersRef.current.forEach(clearTimeout);
       swapTimersRef.current = [];
     };
-  }, [track.title, needleLifted]);
+  }, [track.uri, track.title, track.artist]);
 
   // Seek drag
   useEffect(() => {
@@ -220,16 +243,6 @@ export default function Player({
   // Star position along progress bar (design coords → unit --u)
   const starShift = -3 / 306 + displayProgress * (226 / 512) * (526 / 306);
 
-  const spinClass = [
-    'record-player',
-    'record-disk',
-    !swapping ? 'spinning' : '',
-    !isPlaying || swapping ? 'is-paused' : '',
-    swapping ? 'record-slide-out' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-
   return (
     <div className={`player ${theme === 'blue' ? 'theme-blue' : ''}`}>
       <img src={assets.frame} className="layer" alt="" draggable={false} />
@@ -246,16 +259,16 @@ export default function Player({
         draggable={false}
       />
 
-      {/* Vinyl — CSS continuous spin while playing */}
+      {/* Vinyl — shading frames = spin; CSS rotate was the wrong axis for this art */}
       <img
-        src={diskSrc}
-        className={spinClass}
+        src={currentFrames[recordFrame % currentFrames.length]}
+        className={`record-player record-disk ${swapping ? 'record-slide-out' : ''}`}
         alt=""
         draggable={false}
       />
       {swapping && (
         <img
-          src={incomingDiskSrc}
+          src={incomingFrames[0]}
           className="record-player record-disk record-slide-in"
           alt=""
           draggable={false}
@@ -266,8 +279,10 @@ export default function Player({
       <img
         src={
           needleLifted
-            ? assets.needleChangeFrames[needleChangeFrame]
-            : assets.needlePlayFrames[needleFrame]
+            ? assets.needleChangeFrames[
+                Math.min(needleChangeFrame, assets.needleChangeFrames.length - 1)
+              ]
+            : assets.needlePlayFrames[needleFrame % assets.needlePlayFrames.length]
         }
         className="record-player record-needle"
         alt=""

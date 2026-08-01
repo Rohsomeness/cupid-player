@@ -444,35 +444,20 @@
   pointer-events: none;
   user-select: none;
   z-index: 10;
-  will-change: transform;
+  will-change: transform, opacity;
 }
 
 .record-platter {
   z-index: 9;
 }
 
-/* Continuous vinyl spin — frame-cycling alone reads as static */
+/* Disk stays flat in screen-space; "spin" is the 4 shading frames in JS */
 .record-disk {
   z-index: 10;
-  transform-origin: center center;
-}
-
-.record-disk.spinning {
-  animation: record-spin 2.15s linear infinite;
-}
-
-.record-disk.spinning.is-paused {
-  animation-play-state: paused;
-}
-
-@keyframes record-spin {
-  from { transform: translateX(-50%) rotate(0deg); }
-  to { transform: translateX(-50%) rotate(360deg); }
 }
 
 .record-needle {
   z-index: 12;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
 }
 
 .frame-overlay {
@@ -483,32 +468,43 @@
   z-index: 20;
 }
 
+/*
+ * Record swap on next/prev:
+ * old disk slides off to the left/down (pulled off the platter),
+ * new disk slides in from the same direction onto the spindle.
+ * No CSS rotate — that axis is wrong for isometric vinyl art.
+ */
 .record-slide-out {
-  animation: slide-out 0.78s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: record-slide-out 0.68s cubic-bezier(0.45, 0, 0.55, 1) forwards;
+  z-index: 11;
 }
 
 .record-slide-in {
-  animation: slide-in 0.78s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: record-slide-in 0.68s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  z-index: 11;
 }
 
-@keyframes slide-out {
+@keyframes record-slide-out {
   0% {
-    transform: translateX(-50%) rotate(0deg) scale(1);
+    transform: translateX(-50%) translateY(0);
     opacity: 1;
   }
   100% {
-    transform: translateX(calc(-50% - 0.55 * var(--u))) translateY(calc(0.12 * var(--u))) rotate(-28deg) scale(0.9);
-    opacity: 0.25;
+    transform: translateX(calc(-50% - 0.62 * var(--u))) translateY(calc(0.18 * var(--u)));
+    opacity: 0;
   }
 }
 
-@keyframes slide-in {
+@keyframes record-slide-in {
   0% {
-    transform: translateX(calc(-50% - 0.55 * var(--u))) translateY(calc(0.12 * var(--u))) rotate(28deg) scale(0.9);
-    opacity: 0.25;
+    transform: translateX(calc(-50% - 0.62 * var(--u))) translateY(calc(0.18 * var(--u)));
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
   }
   100% {
-    transform: translateX(-50%) rotate(0deg) scale(1);
+    transform: translateX(-50%) translateY(0);
     opacity: 1;
   }
 }
