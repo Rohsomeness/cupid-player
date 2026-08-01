@@ -338,7 +338,6 @@ export default function Player({
       />
 
       {/* Chrome: contained settings + X (same button style) */}
-      <div className="chrome-btn-mask" aria-hidden />
       <img src={assets.settings} className="layer layer-ui settings-layer" alt="" draggable={false} />
       <img src={assets.exitButton} className="layer layer-ui chrome-exit-layer" alt="" draggable={false} />
 

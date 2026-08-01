@@ -109,23 +109,6 @@
   height: calc(22 / 306 * var(--u));
 }
 
-/* Optional cover if frame still bakes min icon left of settings */
-.chrome-btn-mask {
-  position: absolute;
-  left: calc((318 - 110) / 306 * var(--u));
-  top: calc((45 - 23) / 306 * var(--u));
-  width: calc(28 / 306 * var(--u));
-  height: calc(26 / 306 * var(--u));
-  z-index: 18;
-  background: #e8a0b4;
-  pointer-events: none;
-  image-rendering: pixelated;
-}
-
-.player.theme-blue .chrome-btn-mask {
-  background: #6ec4c8;
-}
-
 .settings-layer,
 .chrome-exit-layer {
   z-index: 21;
