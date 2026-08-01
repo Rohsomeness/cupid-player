@@ -235,34 +235,19 @@ export default function PlayerPage() {
   );
 
   return (
-    <div className="player-page">
-      <div className="player-topbar">
-        <Link to="/">← home</Link>
-        <span className="spacer" />
-        {playlistName && <span style={{ opacity: 0.75 }}>{playlistName}</span>}
-        <button
-          type="button"
-          className="btn-pixel secondary"
-          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-          onClick={() => {
+    <div className="player-page is-playing">
+      <div className="player-stage">
+        <Player
+          tracks={tracks}
+          playlistName={playlistName}
+          showSettings={showSettings}
+          onOpenSettings={() => {
             setShowSettings((v) => !v);
             if (!playlists.length) loadPlaylists();
           }}
-        >
-          {showSettings ? 'close' : 'playlists'}
-        </button>
-        <Link to="/setup">setup</Link>
+          settingsSlot={settingsSlot}
+        />
       </div>
-      <Player
-        tracks={tracks}
-        playlistName={playlistName}
-        showSettings={showSettings}
-        onOpenSettings={() => {
-          setShowSettings((v) => !v);
-          if (!playlists.length) loadPlaylists();
-        }}
-        settingsSlot={settingsSlot}
-      />
     </div>
   );
 }

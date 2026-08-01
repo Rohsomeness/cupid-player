@@ -36,6 +36,11 @@ function MarqueeText({ className, text }) {
   );
 }
 
+function goHome() {
+  const base = import.meta.env.BASE_URL || '/';
+  window.location.href = base.endsWith('/') ? base : `${base}/`;
+}
+
 /**
  * Pixel player shell — cupid vibe, Spotify Web Playback under the hood.
  */
@@ -76,26 +81,28 @@ export default function Player({
   const seekRef = useRef(null);
   const volumeBarRef = useRef(null);
 
-  const [recordFrame, setRecordFrame] = useState(0);
   const [needleFrame, setNeedleFrame] = useState(0);
   const [isPink, setIsPink] = useState(true);
   const [swapping, setSwapping] = useState(false);
   const [needleLifted, setNeedleLifted] = useState(false);
   const [needleChangeFrame, setNeedleChangeFrame] = useState(0);
   const prevTrackRef = useRef(null);
+  const swapTimersRef = useRef([]);
 
-  const currentFrames = isPink ? assets.recordFramesA : assets.recordFramesB;
-  const incomingFrames = isPink ? assets.recordFramesB : assets.recordFramesA;
+  // Pick a vinyl face; continuous spin is CSS (not frame-cycling)
+  const diskSrc = isPink ? assets.recordFramesA[0] : assets.recordFramesB[0];
+  const incomingDiskSrc = isPink ? assets.recordFramesB[0] : assets.recordFramesA[0];
 
+  // Needle bob while playing (faster + smoother interval)
   useEffect(() => {
-    if (!isPlaying || swapping) return;
+    if (!isPlaying || swapping || needleLifted) return;
     const interval = setInterval(() => {
-      setRecordFrame((f) => (f + 1) % currentFrames.length);
       setNeedleFrame((f) => (f + 1) % assets.needlePlayFrames.length);
-    }, 400);
+    }, 180);
     return () => clearInterval(interval);
-  }, [isPlaying, swapping, currentFrames.length, assets.needlePlayFrames.length]);
+  }, [isPlaying, swapping, needleLifted, assets.needlePlayFrames.length]);
 
+  // Track change: lift needle → swap disk → lower needle
   useEffect(() => {
     if (prevTrackRef.current === track.title) return;
     const wasInitialOrPlaceholder =
@@ -105,20 +112,34 @@ export default function Player({
     if (wasInitialOrPlaceholder) return;
     if (needleLifted) return;
 
+    swapTimersRef.current.forEach(clearTimeout);
+    swapTimersRef.current = [];
+
     setNeedleLifted(true);
     setNeedleChangeFrame(0);
-    setTimeout(() => setNeedleChangeFrame(1), 200);
-    setTimeout(() => setSwapping(true), 400);
-    setTimeout(() => {
+
+    const t = (ms, fn) => {
+      swapTimersRef.current.push(setTimeout(fn, ms));
+    };
+
+    t(160, () => setNeedleChangeFrame(1));
+    t(320, () => setNeedleChangeFrame(2));
+    t(420, () => setSwapping(true));
+    t(1180, () => {
       setIsPink((p) => !p);
-      setRecordFrame(0);
       setSwapping(false);
-    }, 1000);
-    setTimeout(() => {
+    });
+    t(1280, () => setNeedleChangeFrame(1));
+    t(1420, () => {
       setNeedleChangeFrame(0);
       setNeedleLifted(false);
       setNeedleFrame(0);
-    }, 1100);
+    });
+
+    return () => {
+      swapTimersRef.current.forEach(clearTimeout);
+      swapTimersRef.current = [];
+    };
   }, [track.title, needleLifted]);
 
   // Seek drag
@@ -144,9 +165,13 @@ export default function Player({
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove, { passive: true });
+    window.addEventListener('touchend', onUp);
     return () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
     };
   }, [dragging, seek]);
 
@@ -156,8 +181,9 @@ export default function Player({
     const onMove = (e) => {
       const el = volumeBarRef.current;
       if (!el) return;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
       const rect = el.getBoundingClientRect();
-      const pct = Math.max(0, Math.min(1, 1 - (e.clientY - rect.top) / rect.height));
+      const pct = Math.max(0, Math.min(1, 1 - (clientY - rect.top) / rect.height));
       setVolume(pct);
     };
     const onUp = () => {
@@ -180,7 +206,6 @@ export default function Player({
     });
   }, []);
 
-  // Favicon by theme
   useEffect(() => {
     let link = document.querySelector("link[rel~='icon']");
     if (!link) {
@@ -191,6 +216,20 @@ export default function Player({
     link.href = assets.favicon;
   }, [assets.favicon]);
 
+  const displayProgress = hoverProgress ?? progress;
+  // Star position along progress bar (design coords → unit --u)
+  const starShift = -3 / 306 + displayProgress * (226 / 512) * (526 / 306);
+
+  const spinClass = [
+    'record-player',
+    'record-disk',
+    !swapping ? 'spinning' : '',
+    !isPlaying || swapping ? 'is-paused' : '',
+    swapping ? 'record-slide-out' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <div className={`player ${theme === 'blue' ? 'theme-blue' : ''}`}>
       <img src={assets.frame} className="layer" alt="" draggable={false} />
@@ -199,28 +238,38 @@ export default function Player({
         {playlistName ? `cupid · ${playlistName}` : 'cupid player'}
       </div>
 
-      <img src={assets.recordPlayer} className="record-player" alt="" draggable={false} />
+      {/* Platter base (static) */}
       <img
-        src={currentFrames[recordFrame]}
-        className={`record-player ${swapping ? 'record-slide-out' : ''}`}
+        src={assets.recordPlayer}
+        className="record-player record-platter"
+        alt=""
+        draggable={false}
+      />
+
+      {/* Vinyl — CSS continuous spin while playing */}
+      <img
+        src={diskSrc}
+        className={spinClass}
         alt=""
         draggable={false}
       />
       {swapping && (
         <img
-          src={incomingFrames[0]}
-          className="record-player record-slide-in"
+          src={incomingDiskSrc}
+          className="record-player record-disk record-slide-in"
           alt=""
           draggable={false}
         />
       )}
+
+      {/* Needle */}
       <img
         src={
           needleLifted
             ? assets.needleChangeFrames[needleChangeFrame]
             : assets.needlePlayFrames[needleFrame]
         }
-        className="record-player"
+        className="record-player record-needle"
         alt=""
         draggable={false}
       />
@@ -231,11 +280,11 @@ export default function Player({
       <img src={assets.progressBar} className="layer layer-ui" alt="" draggable={false} />
       <img
         src={progressBarStars}
-        className="layer layer-ui"
+        className="layer layer-ui progress-fill-layer"
         alt=""
         draggable={false}
         style={{
-          clipPath: `inset(0 ${(1 - (131 + (hoverProgress ?? progress) * 226 + 10) / 512) * 100}% 0 0)`,
+          clipPath: `inset(0 ${(1 - (131 + displayProgress * 226 + 10) / 512) * 100}% 0 0)`,
         }}
       />
       <img
@@ -244,7 +293,7 @@ export default function Player({
         alt=""
         draggable={false}
         style={{
-          transform: `translateX(calc(-3 / 306 * 100vw + ${(hoverProgress ?? progress) * (226 / 512) * 171.9}vw))`,
+          transform: `translateX(calc(${starShift} * var(--u)))`,
         }}
       />
 
@@ -273,11 +322,10 @@ export default function Player({
         style={{ opacity: playMode === 'normal' ? 0.4 : 0.8 }}
       />
 
-      {/* Decorative window chrome — home link is in top bar; these are visual only */}
-      <img src={assets.minimizerButton} className="layer layer-ui" alt="" draggable={false} />
-      <img src={assets.windowButton} className="layer layer-ui" alt="" draggable={false} />
-      <img src={assets.exitButton} className="layer layer-ui" alt="" draggable={false} />
+      {/* Chrome: settings + close only (mask covers baked min/max) */}
+      <div className="chrome-btn-mask" aria-hidden />
       <img src={assets.settings} className="layer layer-ui settings-layer" alt="" draggable={false} />
+      <img src={assets.exitButton} className="layer layer-ui chrome-exit-layer" alt="" draggable={false} />
 
       <svg width="0" height="0" style={{ position: 'absolute' }}>
         <defs>
@@ -375,11 +423,8 @@ export default function Player({
 
       <div className="btn btn-playmode" onClick={cyclePlayMode} title={playMode} />
 
-      {/* Theme toggle on minimize button hit area */}
-      <div className="btn btn-minimize" onClick={toggleTheme} title="toggle theme" />
-      <div className="btn btn-window" onClick={onOpenSettings} title="settings" />
-      <div className="btn btn-exit" onClick={() => { window.location.href = `${import.meta.env.BASE_URL}`; }} title="home" />
-      <div className="btn btn-settings" onClick={onOpenSettings} />
+      <div className="btn btn-settings" onClick={onOpenSettings} title="settings" />
+      <div className="btn btn-exit" onClick={goHome} title="close" />
 
       {showSettings && (
         <div className="settings-panel">

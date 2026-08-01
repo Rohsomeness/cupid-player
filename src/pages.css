@@ -261,17 +261,21 @@
   margin-top: 0.35rem;
 }
 
-/* Player page chrome (outside framed player) */
+/* Player page — full viewport stage so desktop gets a centered portrait player */
 .player-page {
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: #12080c;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 40%, #2a1520 0%, transparent 60%),
+    #12080c;
 }
 
 .player-page.theme-blue {
-  background: #061014;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 40%, #0a2428 0%, transparent 60%),
+    #061014;
 }
 
 .player-topbar {
@@ -284,6 +288,19 @@
   border-bottom: 2px solid var(--pink-primary);
   font-size: 0.8rem;
   z-index: 10;
+  flex-shrink: 0;
+}
+
+/* When the framed player is up, chrome buttons handle nav — hide top bar on wide screens */
+.player-page.is-playing .player-topbar {
+  display: none;
+}
+
+@media (max-width: 520px) {
+  /* Keep a slim escape hatch on very small screens if needed */
+  .player-page.is-playing .player-topbar {
+    display: none;
+  }
 }
 
 .player-page.theme-blue .player-topbar {
@@ -300,32 +317,16 @@
 }
 
 .player-stage {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Constrain the original vw-based player so it fits desktop + mobile */
-  max-width: min(100vw, 420px);
   width: 100%;
-  margin: 0 auto;
-  aspect-ratio: 306 / 520;
-  max-height: calc(100dvh - 48px);
+  min-height: 0;
+  padding: 12px;
+  /* Size queries for --u inside .player */
+  container-type: size;
   position: relative;
-}
-
-.player-stage .player {
-  /* Original CSS uses 100vw; scale inside a fixed stage via container */
-  width: 100%;
-  height: 100%;
-  --stage-w: 100%;
-}
-
-/* Override vw-based layout to use % of stage instead for web embedding */
-.player-stage .player .layer {
-  top: calc(-23 / 306 * 100%);
-  left: calc(-110 / 306 * 100%);
-  width: calc(526 / 306 * 100%);
-  height: calc(526 / 306 * 100%);
 }
 
 /* Gate / login overlay */
