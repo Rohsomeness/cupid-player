@@ -265,11 +265,13 @@
 .player-page {
   min-height: 100vh;
   min-height: 100dvh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   background:
     radial-gradient(ellipse 70% 50% at 50% 40%, #2a1520 0%, transparent 60%),
     #12080c;
+  overflow: hidden;
 }
 
 .player-page.theme-blue {
@@ -323,10 +325,11 @@
   justify-content: center;
   width: 100%;
   min-height: 0;
+  height: 100%;
   padding: 12px;
-  /* Size queries for --u inside .player */
-  container-type: size;
+  box-sizing: border-box;
   position: relative;
+  /* Do NOT use container-type: size here — it zeroed the player via cqi/cqh */
 }
 
 /* Gate / login overlay */

@@ -1,16 +1,13 @@
 /*
  * --u = width of the visible frame (design 306×497).
- * Fit desktop and mobile by sizing to the smaller of width/height budgets
- * so the player stays portrait and centered (not stretched to full viewport width).
+ * Use viewport units only — container query units (cqi/cqh) on a flex stage
+ * create a circular size dependency and collapse the player to 0×0.
  */
 .player {
-  /* Portrait player that fits the viewport (works on wide desktops + phones) */
   --u: min(calc(100vw - 24px), calc((100dvh - 24px) * 306 / 497));
   position: relative;
   width: var(--u);
   height: calc(var(--u) * 497 / 306);
-  max-width: 100%;
-  max-height: 100%;
   overflow: hidden;
   border-radius: calc(5 / 306 * var(--u));
   clip-path: inset(0 0 0 calc(3 / 306 * var(--u)));
@@ -21,18 +18,6 @@
   background: #12080c;
   flex-shrink: 0;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-}
-
-/* When staged in a sized container, prefer container units for tighter fit */
-@supports (width: 1cqi) {
-  .player-stage .player {
-    --u: min(
-      100cqi,
-      calc(100cqh * 306 / 497),
-      calc(100vw - 24px),
-      calc((100dvh - 24px) * 306 / 497)
-    );
-  }
 }
 
 .player.theme-blue {
